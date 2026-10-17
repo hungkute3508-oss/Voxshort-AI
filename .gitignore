@@ -1,0 +1,29 @@
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+
+# Tool output directories
+1_Unbox_Khong_Voice/
+2_Review_Co_Voice/
+3_Can_Kiem_Tra_Lai/
+*.csv
+
+# Environments & Virtualenv
+.env
+.venv
+env/
+venv/
+ENV/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
+Desktop.ini
+.DS_Store
