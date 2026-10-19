@@ -1,8 +1,6 @@
 {
   "source_dir": "",
   "output_unbox": "1_Unbox_Khong_Voice",
-  "output_unbox_music": "1_Co_Nhac",
-  "output_unbox_nomusic": "2_Khong_Nhac",
   "output_review": "2_Review_Co_Voice",
   "output_review_sub": "1_Co_Phu_De",
   "output_review_nosub": "2_Khong_Phu_De",
@@ -22,8 +20,6 @@
   "beam_size": 1,
   "scan_duration_limit": 0,
   "recursive": false,
-  "delete_has_human": true,
-  "human_sample_frames": 6,
   "delete_low_res": true,
   "filter_min_resolution": 720,
   "delete_non_9_16": true,
