@@ -8,8 +8,8 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 from classifier_core import (
     VideoInfo, ClassificationResult, transcribe_and_classify,
-    dispatch_file_action, CATEGORY_UNBOX, CATEGORY_REVIEW,
-    CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB,
+    dispatch_file_action, CATEGORY_UNBOX, CATEGORY_UNBOX_MUSIC, CATEGORY_UNBOX_NOMUSIC,
+    CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB,
     CATEGORY_DOUBT, CATEGORY_ERROR, CATEGORY_DELETED, get_ocr_instance,
     check_video_shopee_filters, delete_video_file
 )
@@ -114,6 +114,8 @@ class ClassifierWorker(QThread):
         processed_count = 0
         summary = {
             CATEGORY_UNBOX: 0,
+            CATEGORY_UNBOX_MUSIC: 0,
+            CATEGORY_UNBOX_NOMUSIC: 0,
             CATEGORY_REVIEW: 0,
             CATEGORY_REVIEW_SUB: 0,
             CATEGORY_REVIEW_NOSUB: 0,
@@ -191,6 +193,8 @@ class ClassifierWorker(QThread):
                     summary[result.category] = summary.get(result.category, 0) + 1
                     if result.category in (CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB):
                         summary[CATEGORY_REVIEW] = summary.get(CATEGORY_REVIEW, 0) + 1
+                    if result.category in (CATEGORY_UNBOX_MUSIC, CATEGORY_UNBOX_NOMUSIC):
+                        summary[CATEGORY_UNBOX] = summary.get(CATEGORY_UNBOX, 0) + 1
 
                     elapsed = time.time() - start_time
                     avg_per_item = elapsed / processed_count if processed_count > 0 else 0
@@ -217,7 +221,7 @@ class ClassifierWorker(QThread):
                         elif result.category == CATEGORY_REVIEW_NOSUB:
                             log_type = "info"
                             extra_sub = " [Không có phụ đề]"
-                        elif result.category == CATEGORY_UNBOX:
+                        elif result.category in (CATEGORY_UNBOX, CATEGORY_UNBOX_MUSIC, CATEGORY_UNBOX_NOMUSIC):
                             log_type = "info"
                         elif result.category == CATEGORY_DOUBT:
                             log_type = "warn"

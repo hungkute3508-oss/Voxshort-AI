@@ -132,17 +132,25 @@ class SettingsDialog(QDialog):
         fold_grid = QGridLayout(fold_group)
         fold_grid.setVerticalSpacing(10)
 
-        fold_grid.addWidget(QLabel("Thư mục Unbox:"), 0, 0)
+        fold_grid.addWidget(QLabel("Thư mục Unbox (Không Voice):"), 0, 0)
         self.edit_unbox_folder = QLineEdit()
         fold_grid.addWidget(self.edit_unbox_folder, 0, 1)
 
-        fold_grid.addWidget(QLabel("Thư mục Review:"), 1, 0)
-        self.edit_review_folder = QLineEdit()
-        fold_grid.addWidget(self.edit_review_folder, 1, 1)
+        fold_grid.addWidget(QLabel("  ↳ Thư mục con Có Nhạc:"), 1, 0)
+        self.edit_unbox_music = QLineEdit()
+        fold_grid.addWidget(self.edit_unbox_music, 1, 1)
 
-        fold_grid.addWidget(QLabel("Thư mục Nghi ngờ / Cần KT:"), 2, 0)
+        fold_grid.addWidget(QLabel("  ↳ Thư mục con Không Nhạc:"), 2, 0)
+        self.edit_unbox_nomusic = QLineEdit()
+        fold_grid.addWidget(self.edit_unbox_nomusic, 2, 1)
+
+        fold_grid.addWidget(QLabel("Thư mục Review (Có Voice):"), 3, 0)
+        self.edit_review_folder = QLineEdit()
+        fold_grid.addWidget(self.edit_review_folder, 3, 1)
+
+        fold_grid.addWidget(QLabel("Thư mục Nghi ngờ / Cần KT:"), 4, 0)
         self.edit_doubt_folder = QLineEdit()
-        fold_grid.addWidget(self.edit_doubt_folder, 2, 1)
+        fold_grid.addWidget(self.edit_doubt_folder, 4, 1)
 
         fold_layout.addWidget(fold_group)
 
@@ -270,6 +278,8 @@ class SettingsDialog(QDialog):
         self.spin_scan_limit.setValue(c.get("scan_duration_limit", 0))
 
         self.edit_unbox_folder.setText(c.get("output_unbox", "1_Unbox_Khong_Voice"))
+        self.edit_unbox_music.setText(c.get("output_unbox_music", "1_Co_Nhac"))
+        self.edit_unbox_nomusic.setText(c.get("output_unbox_nomusic", "2_Khong_Nhac"))
         self.edit_review_folder.setText(c.get("output_review", "2_Review_Co_Voice"))
         self.edit_doubt_folder.setText(c.get("output_doubt", "3_Can_Kiem_Tra_Lai"))
 
@@ -296,6 +306,8 @@ class SettingsDialog(QDialog):
         self.spin_vad.setValue(0.6)
         self.spin_scan_limit.setValue(0)
         self.edit_unbox_folder.setText("1_Unbox_Khong_Voice")
+        self.edit_unbox_music.setText("1_Co_Nhac")
+        self.edit_unbox_nomusic.setText("2_Khong_Nhac")
         self.edit_review_folder.setText("2_Review_Co_Voice")
         self.edit_doubt_folder.setText("3_Can_Kiem_Tra_Lai")
         self.radio_move.setChecked(True)
@@ -322,6 +334,8 @@ class SettingsDialog(QDialog):
         self.config["split_review_subtitles"] = False
 
         self.config["output_unbox"] = self.edit_unbox_folder.text().strip() or "1_Unbox_Khong_Voice"
+        self.config["output_unbox_music"] = self.edit_unbox_music.text().strip() or "1_Co_Nhac"
+        self.config["output_unbox_nomusic"] = self.edit_unbox_nomusic.text().strip() or "2_Khong_Nhac"
         self.config["output_review"] = self.edit_review_folder.text().strip() or "2_Review_Co_Voice"
         self.config["output_doubt"] = self.edit_doubt_folder.text().strip() or "3_Can_Kiem_Tra_Lai"
 

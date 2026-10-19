@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from typing import Optional, Dict, Any, Tuple, List
 import av
 import cv2
+import numpy as np
+from scipy import signal
 
 # Suppress symlink warning on Windows for huggingface hub
 os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
@@ -12,6 +14,8 @@ os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
 SUPPORTED_EXTENSIONS = (".mp4", ".mov", ".avi", ".mkv", ".webm", ".flv", ".m4v", ".wmv")
 
 CATEGORY_UNBOX = "UNBOX"
+CATEGORY_UNBOX_MUSIC = "UNBOX_MUSIC"
+CATEGORY_UNBOX_NOMUSIC = "UNBOX_NOMUSIC"
 CATEGORY_REVIEW = "REVIEW"
 CATEGORY_REVIEW_SUB = "REVIEW_SUB"
 CATEGORY_REVIEW_NOSUB = "REVIEW_NOSUB"
@@ -21,6 +25,8 @@ CATEGORY_DELETED = "DELETED"
 
 CATEGORY_NAMES = {
     CATEGORY_UNBOX: "📦 Unbox (Không Voice)",
+    CATEGORY_UNBOX_MUSIC: "🎵 Unbox (Có Nhạc)",
+    CATEGORY_UNBOX_NOMUSIC: "🔇 Unbox (Không Nhạc)",
     CATEGORY_REVIEW: "🎙️ Review (Có Voice)",
     CATEGORY_REVIEW_SUB: "🟢 Review (Có Phụ Đề)",
     CATEGORY_REVIEW_NOSUB: "🔵 Review (Không Phụ Đề)",
@@ -244,6 +250,88 @@ def check_has_audio(video_path: str) -> bool:
     except Exception:
         return True
 
+def extract_audio_samples(video_path: str, max_duration: float = 30.0, target_sr: int = 16000):
+    """Trích xuất mảng audio 16kHz mono từ video bằng PyAV cực nhanh."""
+    try:
+        with av.open(video_path) as container:
+            if len(container.streams.audio) == 0:
+                return None, 0.0
+            audio_stream = container.streams.audio[0]
+            resampler = av.AudioResampler(format='flt', layout='mono', rate=target_sr)
+            samples_list = []
+            total_time = 0.0
+            for frame in container.decode(audio_stream):
+                resampled_frames = resampler.resample(frame)
+                if resampled_frames:
+                    for rf in resampled_frames:
+                        arr = rf.to_ndarray()[0]
+                        samples_list.append(arr)
+                        total_time += len(arr) / target_sr
+                if total_time >= max_duration:
+                    break
+            if not samples_list:
+                return None, 0.0
+            return np.concatenate(samples_list), total_time
+    except Exception:
+        return None, 0.0
+
+def detect_audio_music(video_path: str, max_duration: float = 30.0) -> Tuple[bool, float, str]:
+    """
+    Phân tích âm thanh của video để xác định có ghép nhạc nền (BGM) hay không nhạc (Im lặng / Cắt tiếng / Chỉ tiếng ồn unbox).
+    Trả về: (has_music, music_score, detail_desc)
+    """
+    if not check_has_audio(video_path):
+        return False, 0.0, "Không có luồng âm thanh"
+
+    audio, dur = extract_audio_samples(video_path, max_duration=max_duration)
+    if audio is None or len(audio) < 8000:
+        return False, 0.0, "Không có dữ liệu âm thanh"
+
+    try:
+        sr = 16000
+        # 1. Kiểm tra năng lượng RMS
+        rms = np.sqrt(np.mean(audio**2))
+        db = 20 * np.log10(rms + 1e-9)
+        if db < -42.0:
+            return False, 0.0, f"Âm thanh im lặng ({db:.1f} dB)"
+
+        # 2. Windowed RMS continuity (Độ liên tục âm thanh)
+        win_len = int(sr * 0.5)
+        hop = int(sr * 0.25)
+        num_wins = (len(audio) - win_len) // hop
+        if num_wins <= 0:
+            return False, 0.0, "Thời lượng âm thanh quá ngắn"
+
+        win_rms = np.array([np.sqrt(np.mean(audio[i*hop : i*hop + win_len]**2)) for i in range(num_wins)])
+        active_ratio = float(np.mean(win_rms > 0.008))
+
+        # 3. Phổ tần số & Độ phẳng phổ (Spectral Flatness)
+        freqs, times, Sxx = signal.spectrogram(audio, sr, nperseg=1024, noverlap=512)
+        Sxx = np.maximum(Sxx, 1e-10)
+        geo_mean = np.exp(np.mean(np.log(Sxx), axis=0))
+        arith_mean = np.mean(Sxx, axis=0)
+        flatness = float(np.median(geo_mean / (arith_mean + 1e-9)))
+
+        # 4. Tính đỉnh hài phổ (Harmonic Peakiness)
+        peakiness = float(np.median(np.max(Sxx, axis=0) / (np.median(Sxx, axis=0) + 1e-9)))
+
+        score = 0.0
+        if flatness < 0.12: score += 40.0
+        elif flatness < 0.22: score += 20.0
+
+        if peakiness > 20.0: score += 35.0
+        elif peakiness > 10.0: score += 15.0
+
+        if active_ratio > 0.60: score += 25.0
+        elif active_ratio > 0.35: score += 10.0
+
+        has_music = score >= 50.0
+        detail = f"Điểm nhạc: {int(score)}% (Độ phủ: {int(active_ratio*100)}%, Độ phẳng: {flatness:.2f})"
+        return has_music, score, detail
+
+    except Exception as e:
+        return False, 0.0, f"Lỗi phân tích nhạc: {e}"
+
 def detect_subtitles_ocr(video_path: str, num_samples: int = 6) -> Tuple[bool, str]:
     """
     Quét nhận diện phụ đề (hardcoded/burned-in subtitles) trên khung hình video.
@@ -372,13 +460,13 @@ def transcribe_and_classify(
         return ClassificationResult(
             file_name=file_name,
             file_path=video_path,
-            category=CATEGORY_UNBOX,
-            category_name=CATEGORY_NAMES[CATEGORY_UNBOX],
+            category=CATEGORY_UNBOX_NOMUSIC,
+            category_name=CATEGORY_NAMES[CATEGORY_UNBOX_NOMUSIC],
             total_words=0,
             total_speech_time=0.0,
             speech_rate=0.0,
             detected_language="none",
-            sample_text="(Video không có luồng âm thanh)",
+            sample_text="(Không có luồng âm thanh - Không Nhạc)",
             destination_path="",
             file_size_mb=file_size_mb,
             processing_time=elapsed,
@@ -422,7 +510,15 @@ def transcribe_and_classify(
         # Phân loại theo thuật toán ban đầu
         is_review = False
         if tong_so_tu < unbox_max_words or tong_thoi_gian < unbox_max_dur:
-            category = CATEGORY_UNBOX
+            has_music, m_score, m_desc = detect_audio_music(video_path)
+            if has_music:
+                category = CATEGORY_UNBOX_MUSIC
+                music_tag = f"[CÓ NHẠC] {m_desc}"
+            else:
+                category = CATEGORY_UNBOX_NOMUSIC
+                music_tag = f"[KHÔNG NHẠC] {m_desc}"
+
+            sample_texts.append(music_tag)
         elif tong_so_tu >= review_min_words and toc_do >= review_min_speed:
             is_review = True
             category = CATEGORY_REVIEW
@@ -468,13 +564,13 @@ def transcribe_and_classify(
         return ClassificationResult(
             file_name=file_name,
             file_path=video_path,
-            category=CATEGORY_UNBOX,
-            category_name=CATEGORY_NAMES[CATEGORY_UNBOX],
+            category=CATEGORY_UNBOX_NOMUSIC,
+            category_name=CATEGORY_NAMES[CATEGORY_UNBOX_NOMUSIC],
             total_words=0,
             total_speech_time=0.0,
             speech_rate=0.0,
             detected_language="none",
-            sample_text="(Âm thanh rỗng / Không có tiếng)",
+            sample_text="(Âm thanh rỗng / Không có tiếng - Không Nhạc)",
             destination_path="",
             file_size_mb=file_size_mb,
             processing_time=elapsed,
@@ -511,6 +607,16 @@ def dispatch_file_action(
 
     if result.category == CATEGORY_ERROR:
         target_dir = dest_folders.get(CATEGORY_DOUBT, "")
+    elif result.category == CATEGORY_UNBOX_MUSIC:
+        # Thư mục con Có Nhạc bên trong 1_Unbox_Khong_Voice
+        base_unbox_dir = dest_folders.get(CATEGORY_UNBOX, "")
+        sub_music = config.get("output_unbox_music", "1_Co_Nhac")
+        target_dir = os.path.join(base_unbox_dir, sub_music)
+    elif result.category == CATEGORY_UNBOX_NOMUSIC:
+        # Thư mục con Không Nhạc bên trong 1_Unbox_Khong_Voice
+        base_unbox_dir = dest_folders.get(CATEGORY_UNBOX, "")
+        sub_nomusic = config.get("output_unbox_nomusic", "2_Khong_Nhac")
+        target_dir = os.path.join(base_unbox_dir, sub_nomusic)
     elif result.category == CATEGORY_REVIEW_SUB:
         # Thư mục con Có Phụ Đề bên trong 2_Review_Co_Voice
         base_review_dir = dest_folders.get(CATEGORY_REVIEW, "")

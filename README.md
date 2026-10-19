@@ -1,6 +1,6 @@
-# 🎬 VoxSort AI - Công Cụ Phân Loại Video Tự Động (Whisper Voice AI & RapidOCR)
+# 🎬 VoxSort AI - Công Cụ Phân Loại Video Tự Động (Whisper Voice AI & Audio DSP)
 
-**VoxSort AI** là phần mềm desktop chuyên nghiệp được xây dựng để quét và tự động phân loại khối lượng lớn video (Unbox, Review, TikTok, Reels, Shorts, Youtube...) dựa trên trí tuệ nhân tạo nhận diện giọng nói **Faster-Whisper (OpenAI)** kết hợp thị giác máy tính **RapidOCR (ONNX)** nhận diện phụ đề màn hình.
+**VoxSort AI** là phần mềm desktop chuyên nghiệp được xây dựng để quét và tự động phân loại khối lượng lớn video (Unbox, Review, TikTok, Reels, Shorts, Youtube...) dựa trên trí tuệ nhân tạo nhận diện giọng nói **Faster-Whisper (OpenAI)** kết hợp thuật toán phân tích âm phổ **Audio DSP (Spectral Flatness / Energy)** nhận diện nhạc nền và thị giác máy tính **RapidOCR (ONNX)**.
 
 ---
 
@@ -8,14 +8,16 @@
 
 Tool tự động phân loại kho video thành các nhóm rõ ràng:
 
-1. **📦 UNBOX (Không Voice / Nhạc nền)**:
-   - Video không có tiếng nói hoặc chỉ có nhạc nền / hiệu ứng âm thanh ngắt quãng ngắn (< 8 từ hoặc < 2.0 giây).
+1. **📦 UNBOX (Không Voice / Quay Sản Phẩm)**:
+   - Video không có tiếng nói thuyết minh hoặc chỉ có âm thanh ngắt quãng ngắn (< 8 từ hoặc < 2.0 giây).
    - Tự động phát hiện video không có track âm thanh trong 0.01s.
-   - Thư mục đích: `1_Unbox_Khong_Voice`
+   - **Tự động chia thành 2 thư mục con bằng thuật toán phân tích âm phổ (DSP)**:
+     - 🎵 **`1_Unbox_Khong_Voice\1_Co_Nhac`**: Video quay sản phẩm ghép nhạc nền (BGM) liên tục, sôi động.
+     - 🔇 **`1_Unbox_Khong_Voice\2_Khong_Nhac`**: Video quay sản phẩm không có nhạc (tắt tiếng, im lặng hoặc chỉ có tiếng sột soạt bóc hộp thực tế).
 
 2. **🎙️ REVIEW (Có Voice Thuyết Minh)**:
    - Video có người nói liên tục (≥ 15 từ và tốc độ nói ≥ 1.5 từ/giây).
-   - **Tự động chia thành 2 nhóm con bằng RapidOCR**:
+   - **Tự động chia thành 2 nhóm con bằng RapidOCR (khi kích hoạt)**:
      - 🟢 **`2_Review_Co_Voice\1_Co_Phu_De`**: Video có phụ đề / captions xuất hiện trên khung hình theo dòng nói.
      - 🔵 **`2_Review_Co_Voice\2_Khong_Phu_De`**: Video review thuần túy bằng giọng nói, không chèn chữ phụ đề trên video.
 
@@ -63,6 +65,8 @@ Sau khi quét, ngay bên trong thư mục video gốc sẽ xuất hiện:
 ```text
 Thư_Mục_Gốc/
 ├── 1_Unbox_Khong_Voice/
+│   ├── 1_Co_Nhac/          <-- Video quay sản phẩm ghép nhạc nền
+│   └── 2_Khong_Nhac/       <-- Video quay sản phẩm không có nhạc (im lặng/tắt tiếng)
 ├── 2_Review_Co_Voice/
 │   ├── 1_Co_Phu_De/        <-- Video Review có chữ phụ đề trên màn hình
 │   └── 2_Khong_Phu_De/     <-- Video Review không có phụ đề

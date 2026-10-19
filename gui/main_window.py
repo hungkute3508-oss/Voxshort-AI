@@ -16,7 +16,8 @@ from PyQt6.QtGui import QColor, QFont, QDesktopServices
 from config_manager import load_config, save_config
 from classifier_core import (
     VideoInfo, ClassificationResult, scan_video_files,
-    CATEGORY_UNBOX, CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB,
+    CATEGORY_UNBOX, CATEGORY_UNBOX_MUSIC, CATEGORY_UNBOX_NOMUSIC,
+    CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB,
     CATEGORY_DOUBT, CATEGORY_ERROR, CATEGORY_DELETED, CATEGORY_NAMES
 )
 from gui.worker_thread import ClassifierWorker
@@ -41,6 +42,8 @@ class MainWindow(QMainWindow):
         # Statistics
         self.count_total = 0
         self.count_unbox = 0
+        self.count_unbox_music = 0
+        self.count_unbox_nomusic = 0
         self.count_review = 0
         self.count_deleted = 0
         self.count_doubt = 0
@@ -199,6 +202,16 @@ class MainWindow(QMainWindow):
         self.btn_open_unbox.clicked.connect(lambda: self._open_dest_folder(CATEGORY_UNBOX))
         row_targets.addWidget(self.btn_open_unbox)
 
+        self.btn_open_unbox_music = QPushButton("🎵 Có Nhạc")
+        self.btn_open_unbox_music.setStyleSheet("color: #38BDF8; border-color: #0284C7; font-size: 11px;")
+        self.btn_open_unbox_music.clicked.connect(lambda: self._open_dest_folder(CATEGORY_UNBOX_MUSIC))
+        row_targets.addWidget(self.btn_open_unbox_music)
+
+        self.btn_open_unbox_nomusic = QPushButton("🔇 Không Nhạc")
+        self.btn_open_unbox_nomusic.setStyleSheet("color: #94A3B8; border-color: #475569; font-size: 11px;")
+        self.btn_open_unbox_nomusic.clicked.connect(lambda: self._open_dest_folder(CATEGORY_UNBOX_NOMUSIC))
+        row_targets.addWidget(self.btn_open_unbox_nomusic)
+
         self.btn_open_doubt = QPushButton("⚠️ Mở: Cần KT")
         self.btn_open_doubt.setStyleSheet("color: #FBBF24; border-color: #B45309;")
         self.btn_open_doubt.clicked.connect(lambda: self._open_dest_folder(CATEGORY_DOUBT))
@@ -303,6 +316,16 @@ class MainWindow(QMainWindow):
         self.btn_filter_unbox.setCheckable(True)
         self.btn_filter_unbox.clicked.connect(lambda: self._apply_filter(CATEGORY_UNBOX))
         filter_row.addWidget(self.btn_filter_unbox)
+
+        self.btn_filter_unbox_music = QPushButton("🎵 Có Nhạc (0)")
+        self.btn_filter_unbox_music.setCheckable(True)
+        self.btn_filter_unbox_music.clicked.connect(lambda: self._apply_filter(CATEGORY_UNBOX_MUSIC))
+        filter_row.addWidget(self.btn_filter_unbox_music)
+
+        self.btn_filter_unbox_nomusic = QPushButton("🔇 Không Nhạc (0)")
+        self.btn_filter_unbox_nomusic.setCheckable(True)
+        self.btn_filter_unbox_nomusic.clicked.connect(lambda: self._apply_filter(CATEGORY_UNBOX_NOMUSIC))
+        filter_row.addWidget(self.btn_filter_unbox_nomusic)
 
         self.btn_filter_deleted = QPushButton("🗑️ Đã xóa (0)")
         self.btn_filter_deleted.setCheckable(True)
@@ -604,6 +627,12 @@ class MainWindow(QMainWindow):
         # Cập nhật số liệu
         if res.category == CATEGORY_UNBOX:
             self.count_unbox += 1
+        elif res.category == CATEGORY_UNBOX_MUSIC:
+            self.count_unbox += 1
+            self.count_unbox_music += 1
+        elif res.category == CATEGORY_UNBOX_NOMUSIC:
+            self.count_unbox += 1
+            self.count_unbox_nomusic += 1
         elif res.category == CATEGORY_DELETED:
             self.count_deleted += 1
         elif res.category in (CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB):
@@ -637,7 +666,7 @@ class MainWindow(QMainWindow):
         if res.category in (CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB):
             cat_item.setForeground(QColor("#34D399"))
             cat_item.setBackground(QColor("#064E3B"))
-        elif res.category == CATEGORY_UNBOX:
+        elif res.category in (CATEGORY_UNBOX, CATEGORY_UNBOX_MUSIC, CATEGORY_UNBOX_NOMUSIC):
             cat_item.setForeground(QColor("#38BDF8"))
             cat_item.setBackground(QColor("#0C4A6E"))
         elif res.category == CATEGORY_DELETED:
@@ -710,7 +739,7 @@ class MainWindow(QMainWindow):
             self, "Hoàn tất phân loại",
             f"🎉 Đã xử lý xong {total_done} video!\n\n"
             f"• 🎙️ Review (Có Voice): {self.count_review}\n"
-            f"• 📦 Unbox (Không voice): {self.count_unbox}\n"
+            f"• 📦 Unbox (Không voice): {self.count_unbox} (🎵 Có nhạc: {self.count_unbox_music} | 🔇 Không nhạc: {self.count_unbox_nomusic})\n"
             f"• 🗑️ Đã xóa (Không đạt chuẩn Shopee): {self.count_deleted}\n"
             f"• ⚠️ Cần kiểm tra lại: {self.count_doubt}\n"
             f"• ❌ Lỗi: {self.count_error}\n\n"
@@ -719,7 +748,7 @@ class MainWindow(QMainWindow):
 
     def _update_counts_ui(self):
         self._update_card_val(self.card_review, str(self.count_review))
-        self._update_card_val(self.card_unbox, str(self.count_unbox))
+        self._update_card_val(self.card_unbox, f"{self.count_unbox}")
         self._update_card_val(self.card_deleted, str(self.count_deleted))
         self._update_card_val(self.card_doubt, str(self.count_doubt))
         self._update_card_val(self.card_error, str(self.count_error))
@@ -728,6 +757,8 @@ class MainWindow(QMainWindow):
         self.btn_filter_all.setText(f"Tất cả ({self.count_total})")
         self.btn_filter_review.setText(f"🎙️ Review ({self.count_review})")
         self.btn_filter_unbox.setText(f"📦 Unbox ({self.count_unbox})")
+        self.btn_filter_unbox_music.setText(f"🎵 Có Nhạc ({self.count_unbox_music})")
+        self.btn_filter_unbox_nomusic.setText(f"🔇 Không Nhạc ({self.count_unbox_nomusic})")
         self.btn_filter_deleted.setText(f"🗑️ Đã xóa ({self.count_deleted})")
         self.btn_filter_doubt.setText(f"⚠️ Cần KT ({self.count_doubt})")
         self.btn_filter_error.setText(f"❌ Lỗi ({self.count_error})")
@@ -738,6 +769,8 @@ class MainWindow(QMainWindow):
             ("ALL", self.btn_filter_all),
             (CATEGORY_REVIEW, self.btn_filter_review),
             (CATEGORY_UNBOX, self.btn_filter_unbox),
+            (CATEGORY_UNBOX_MUSIC, self.btn_filter_unbox_music),
+            (CATEGORY_UNBOX_NOMUSIC, self.btn_filter_unbox_nomusic),
             (CATEGORY_DELETED, self.btn_filter_deleted),
             (CATEGORY_DOUBT, self.btn_filter_doubt),
             (CATEGORY_ERROR, self.btn_filter_error)
@@ -755,6 +788,10 @@ class MainWindow(QMainWindow):
             active_cat = CATEGORY_REVIEW
         elif self.btn_filter_unbox.isChecked():
             active_cat = CATEGORY_UNBOX
+        elif self.btn_filter_unbox_music.isChecked():
+            active_cat = CATEGORY_UNBOX_MUSIC
+        elif self.btn_filter_unbox_nomusic.isChecked():
+            active_cat = CATEGORY_UNBOX_NOMUSIC
         elif self.btn_filter_deleted.isChecked():
             active_cat = CATEGORY_DELETED
         elif self.btn_filter_doubt.isChecked():
@@ -776,6 +813,8 @@ class MainWindow(QMainWindow):
                 cat_match = True
             elif active_cat == CATEGORY_REVIEW:
                 cat_match = (res_cat in (CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB))
+            elif active_cat == CATEGORY_UNBOX:
+                cat_match = (res_cat in (CATEGORY_UNBOX, CATEGORY_UNBOX_MUSIC, CATEGORY_UNBOX_NOMUSIC))
             else:
                 cat_match = (res_cat == active_cat)
 
@@ -837,10 +876,15 @@ class MainWindow(QMainWindow):
             return
 
         review_base = os.path.join(source, self.config.get("output_review", "2_Review_Co_Voice"))
+        unbox_base = os.path.join(source, self.config.get("output_unbox", "1_Unbox_Khong_Voice"))
         if category in (CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB):
             target = review_base
+        elif category == CATEGORY_UNBOX_MUSIC:
+            target = os.path.join(unbox_base, self.config.get("output_unbox_music", "1_Co_Nhac"))
+        elif category == CATEGORY_UNBOX_NOMUSIC:
+            target = os.path.join(unbox_base, self.config.get("output_unbox_nomusic", "2_Khong_Nhac"))
         elif category == CATEGORY_UNBOX:
-            target = os.path.join(source, self.config.get("output_unbox", "1_Unbox_Khong_Voice"))
+            target = unbox_base
         else:
             target = os.path.join(source, self.config.get("output_doubt", "3_Can_Kiem_Tra_Lai"))
 
