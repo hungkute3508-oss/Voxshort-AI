@@ -8,10 +8,11 @@
 
 Tool tự động phân loại kho video thành các nhóm rõ ràng:
 
-1. **📦 UNBOX (Không Voice / Nhạc nền)**:
-   - Video không có tiếng nói hoặc chỉ có nhạc nền / hiệu ứng âm thanh ngắt quãng ngắn (< 8 từ hoặc < 2.0 giây).
-   - Tự động phát hiện video không có track âm thanh trong 0.01s.
-   - Thư mục đích: `1_Unbox_Khong_Voice`
+1. **📦 UNBOX (Không Voice / Video Sản Phẩm)**:
+   - Video không có tiếng nói thuyết minh hoặc chỉ có hiệu ứng âm thanh ngắt quãng ngắn (< 8 từ hoặc < 2.0 giây).
+   - **Tự động chia thành 2 nhóm con**:
+     - 🎵 **`1_Unbox_Khong_Voice\1_Co_Nhac`**: Video có nhạc nền (BGM / bài hát / giai điệu trending).
+     - 🔇 **`1_Unbox_Khong_Voice\2_Khong_Nhac`**: Video không có nhạc (im lặng, tắt âm hoặc chỉ có tiếng động môi trường/unbox).
 
 2. **🎙️ REVIEW (Có Voice Thuyết Minh)**:
    - Video có người nói liên tục (≥ 15 từ và tốc độ nói ≥ 1.5 từ/giây).
@@ -24,21 +25,23 @@ Tool tự động phân loại kho video thành các nhóm rõ ràng:
    - Thư mục đích: `3_Can_Kiem_Tra_Lai`
 
 4. **🗑️ BỘ LỌC TỰ ĐỘNG XÓA (MẶC ĐỊNH - CHUẨN SHOPEE VIDEO)**:
+   - **Xóa video xuất hiện cả người hoặc có mặt người**: Tự động quét AI (YuNet Face Detector & MediaPipe Person Detector) nhận diện khuôn mặt người và dáng cả người (toàn thân / nửa thân).
+     - 💡 **Quy tắc thông minh**: Nếu chỉ có **cánh tay / bàn tay** cầm nắm sản phẩm, mở hộp (unbox), swatch hoặc chỉ ngón tay giới thiệu sản phẩm thì **GIỮ LẠI** và tiến hành lọc bình thường (không bị xóa)!
+     - Chỉ xóa khi nhân vật xuất hiện cả người (reviewer/người mẫu) hoặc để lộ khuôn mặt trên khung hình.
    - **Xóa video có độ phân giải dưới 720p**: Video có cạnh ngắn < 720px (như 360p, 480p, 540p) sẽ bị tự động xóa.
    - **Xóa video không phải tỉ lệ 9:16**: Chỉ giữ video dọc chuẩn Shopee/TikTok 9:16 (ví dụ: 1080x1920, 720x1280). Tự động xóa video ngang 16:9, vuông 1:1, 3:4,...
    - **Xóa video có thời lượng dưới 10 giây**: Video < 10.0s sẽ tự động bị xóa.
-   - ⚡ **Siêu tốc & Tiết kiệm tài nguyên**: Kiểm tra thông số chỉ mất 0.01s - 0.02s, xóa trực tiếp khỏi ổ đĩa ngay trước khi gọi Whisper AI, giúp tăng tốc toàn bộ quá trình lên gấp nhiều lần.
+   - ⚡ **Siêu tốc & Tiết kiệm tài nguyên**: Kiểm tra thông số chỉ mất 0.01s - 0.05s, xóa trực tiếp khỏi ổ đĩa ngay trước khi gọi Whisper AI, giúp tăng tốc toàn bộ quá trình lên gấp nhiều lần.
 
 ---
 
-## 🔍 Thuật Toán Nhận Diện Phụ Đề Hoạt Động Như Thế Nào?
+## 🔍 Thuật Toán Nhận Diện Phụ Đề & Nhận Diện Người Hoạt Động Như Thế Nào?
 
-Để nhận diện phụ đề **chuẩn xác và không làm chậm máy**, VoxSort AI áp dụng cơ chế:
-* **Chỉ quét khi đã xác nhận là Review**: Không tốn tài nguyên quét OCR trên video Unbox.
-* **Lấy mẫu thông minh (Sampling)**: Lấy mẫu 6 khung hình trải đều từ 15% đến 85% thời lượng video.
-* **Khoanh vùng phụ đề (ROI)**: Chỉ quét vùng từ 35% đến 92% chiều cao màn hình (bỏ qua header, tên tài khoản Instagram/TikTok ở trên cùng và thanh điều hướng ở đáy).
-* **Loại trừ Watermark & Logo cố định**: Phụ đề thực sự sẽ có text thay đổi liên tục theo thời gian; nếu text ở mọi frame giống hệt nhau (logo kênh), tool sẽ không tính là phụ đề.
-* **Tốc độ cực nhanh**: Toàn bộ quá trình quét OCR chỉ mất khoảng **0.15s – 0.25s / video** nhờ ONNX Runtime!
+* **Nhận diện con người (Human & Face vs Hands)**: Kết hợp YuNet Face Detector và MediaPipe Person Detector:
+  - *YuNet*: Kiểm tra 5 điểm mốc giải phẫu khuôn mặt (2 mắt, mũi, 2 khóe miệng) và kích thước tối thiểu, loại bỏ ảnh vẽ nhỏ trên nhãn sản phẩm hoặc vân tay phản chiếu.
+  - *MediaPipe PersonDet*: Chỉ kích hoạt khi phát hiện toàn thân hoặc nửa thân trên (vai, ngực, lưng) chiếm từ 18% chiều cao màn hình trở lên. Đôi tay hoặc cánh tay cầm nắm sản phẩm không kích hoạt dáng người nên luôn được giữ lại an toàn.
+* **Nhận diện nhạc nền (Music Detection)**: Phân tích phổ âm thanh (Spectral Flatness, Harmonic Peakiness, Active Energy Continuity) để phân biệt chính xác giữa nhạc nền giai điệu và tiếng sột soạt/im lặng của unbox.
+* **Nhận diện phụ đề (OCR Subtitles)**: Lấy mẫu khung hình và khoanh vùng phụ đề (ROI 35% - 92% chiều cao), loại trừ logo/watermark cố định.
 
 ---
 
@@ -63,6 +66,8 @@ Sau khi quét, ngay bên trong thư mục video gốc sẽ xuất hiện:
 ```text
 Thư_Mục_Gốc/
 ├── 1_Unbox_Khong_Voice/
+│   ├── 1_Co_Nhac/          <-- Video Unbox có nhạc nền
+│   └── 2_Khong_Nhac/       <-- Video Unbox không có nhạc (im lặng / chỉ có tiếng unbox)
 ├── 2_Review_Co_Voice/
 │   ├── 1_Co_Phu_De/        <-- Video Review có chữ phụ đề trên màn hình
 │   └── 2_Khong_Phu_De/     <-- Video Review không có phụ đề

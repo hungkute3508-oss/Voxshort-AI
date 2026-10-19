@@ -132,17 +132,25 @@ class SettingsDialog(QDialog):
         fold_grid = QGridLayout(fold_group)
         fold_grid.setVerticalSpacing(10)
 
-        fold_grid.addWidget(QLabel("Thư mục Unbox:"), 0, 0)
+        fold_grid.addWidget(QLabel("Thư mục Unbox (Không Voice):"), 0, 0)
         self.edit_unbox_folder = QLineEdit()
         fold_grid.addWidget(self.edit_unbox_folder, 0, 1)
 
-        fold_grid.addWidget(QLabel("Thư mục Review:"), 1, 0)
-        self.edit_review_folder = QLineEdit()
-        fold_grid.addWidget(self.edit_review_folder, 1, 1)
+        fold_grid.addWidget(QLabel("  ↳ Thư mục con Có Nhạc:"), 1, 0)
+        self.edit_unbox_music = QLineEdit()
+        fold_grid.addWidget(self.edit_unbox_music, 1, 1)
 
-        fold_grid.addWidget(QLabel("Thư mục Nghi ngờ / Cần KT:"), 2, 0)
+        fold_grid.addWidget(QLabel("  ↳ Thư mục con Không Nhạc:"), 2, 0)
+        self.edit_unbox_nomusic = QLineEdit()
+        fold_grid.addWidget(self.edit_unbox_nomusic, 2, 1)
+
+        fold_grid.addWidget(QLabel("Thư mục Review (Có Voice):"), 3, 0)
+        self.edit_review_folder = QLineEdit()
+        fold_grid.addWidget(self.edit_review_folder, 3, 1)
+
+        fold_grid.addWidget(QLabel("Thư mục Nghi ngờ / Cần KT:"), 4, 0)
         self.edit_doubt_folder = QLineEdit()
-        fold_grid.addWidget(self.edit_doubt_folder, 2, 1)
+        fold_grid.addWidget(self.edit_doubt_folder, 4, 1)
 
         fold_layout.addWidget(fold_group)
 
@@ -171,43 +179,60 @@ class SettingsDialog(QDialog):
         filt_grid.setVerticalSpacing(12)
         filt_grid.setHorizontalSpacing(10)
 
-        # 1. Độ phân giải < 720p
+        # 1. Có con người xuất hiện
+        self.chk_del_has_human = QCheckBox("Tự động XÓA video có hình ảnh con người (mặt / cả người)")
+        self.chk_del_has_human.setStyleSheet("font-weight: 700; color: #FCA5A5;")
+        self.chk_del_has_human.setToolTip("Xóa video xuất hiện cả người hoặc có mặt người. Nếu chỉ có cánh tay/bàn tay cầm nắm sản phẩm thì GIỮ LẠI và lọc bình thường.")
+        filt_grid.addWidget(self.chk_del_has_human, 0, 0, 1, 2)
+
+        filt_grid.addWidget(QLabel("Số khung hình mẫu nhận diện người:"), 1, 0)
+        self.spin_human_samples = QSpinBox()
+        self.spin_human_samples.setRange(3, 16)
+        self.spin_human_samples.setValue(6)
+        self.spin_human_samples.setSuffix(" khung hình / video")
+        filt_grid.addWidget(self.spin_human_samples, 1, 1)
+
+        lbl_human_note = QLabel("<i>(AI phân biệt rõ: Chỉ xóa khi thấy mặt người hoặc dáng cả người. Nếu chỉ có cánh tay/bàn tay cầm sản phẩm giới thiệu thì GIỮ LẠI để phân loại bình thường)</i>")
+        lbl_human_note.setStyleSheet("color: #94A3B8; font-size: 11px;")
+        filt_grid.addWidget(lbl_human_note, 2, 0, 1, 2)
+
+        # 2. Độ phân giải < 720p
         self.chk_del_low_res = QCheckBox("Tự động XÓA video có độ phân giải dưới 720p")
         self.chk_del_low_res.setStyleSheet("font-weight: 600; color: #FCA5A5;")
-        filt_grid.addWidget(self.chk_del_low_res, 0, 0, 1, 2)
+        filt_grid.addWidget(self.chk_del_low_res, 3, 0, 1, 2)
 
-        filt_grid.addWidget(QLabel("Ngưỡng phân giải tối thiểu:"), 1, 0)
+        filt_grid.addWidget(QLabel("Ngưỡng phân giải tối thiểu:"), 4, 0)
         self.spin_min_res = QSpinBox()
         self.spin_min_res.setRange(240, 2160)
         self.spin_min_res.setSingleStep(120)
         self.spin_min_res.setSuffix("p (cạnh ngắn)")
         self.spin_min_res.setValue(720)
         self.spin_min_res.setToolTip("Video có cạnh ngắn < giá trị này sẽ bị xóa (ví dụ: < 720p như 360p, 480p, 540p)")
-        filt_grid.addWidget(self.spin_min_res, 1, 1)
+        filt_grid.addWidget(self.spin_min_res, 4, 1)
 
-        # 2. Định dạng không phải 9:16
+        # 3. Định dạng không phải 9:16
         self.chk_del_non_9_16 = QCheckBox("Tự động XÓA video có định dạng không phải 9:16")
         self.chk_del_non_9_16.setStyleSheet("font-weight: 600; color: #FCA5A5;")
         self.chk_del_non_9_16.setToolTip("Chỉ giữ lại video dọc chuẩn 9:16 (Shopee/TikTok). Video ngang 16:9, vuông 1:1, 3:4,... sẽ bị xóa.")
-        filt_grid.addWidget(self.chk_del_non_9_16, 2, 0, 1, 2)
+        filt_grid.addWidget(self.chk_del_non_9_16, 5, 0, 1, 2)
 
         lbl_ratio_note = QLabel("<i>(Chỉ giữ lại video dọc chuẩn tỉ lệ 9:16 như 1080x1920, 720x1280. Xóa các video ngang 16:9, vuông 1:1,...)</i>")
         lbl_ratio_note.setStyleSheet("color: #94A3B8; font-size: 11px;")
-        filt_grid.addWidget(lbl_ratio_note, 3, 0, 1, 2)
+        filt_grid.addWidget(lbl_ratio_note, 6, 0, 1, 2)
 
-        # 3. Thời lượng < 10s
+        # 4. Thời lượng < 10s
         self.chk_del_short = QCheckBox("Tự động XÓA video có thời lượng dưới 10 giây")
         self.chk_del_short.setStyleSheet("font-weight: 600; color: #FCA5A5;")
-        filt_grid.addWidget(self.chk_del_short, 4, 0, 1, 2)
+        filt_grid.addWidget(self.chk_del_short, 7, 0, 1, 2)
 
-        filt_grid.addWidget(QLabel("Thời lượng tối thiểu:"), 5, 0)
+        filt_grid.addWidget(QLabel("Thời lượng tối thiểu:"), 8, 0)
         self.spin_min_dur = QDoubleSpinBox()
         self.spin_min_dur.setRange(1.0, 300.0)
         self.spin_min_dur.setSingleStep(1.0)
         self.spin_min_dur.setSuffix(" giây")
         self.spin_min_dur.setValue(10.0)
         self.spin_min_dur.setToolTip("Video có thời lượng nhỏ hơn số giây này sẽ tự động bị xóa.")
-        filt_grid.addWidget(self.spin_min_dur, 5, 1)
+        filt_grid.addWidget(self.spin_min_dur, 8, 1)
 
         filter_layout.addWidget(filt_group)
 
@@ -270,6 +295,8 @@ class SettingsDialog(QDialog):
         self.spin_scan_limit.setValue(c.get("scan_duration_limit", 0))
 
         self.edit_unbox_folder.setText(c.get("output_unbox", "1_Unbox_Khong_Voice"))
+        self.edit_unbox_music.setText(c.get("output_unbox_music", "1_Co_Nhac"))
+        self.edit_unbox_nomusic.setText(c.get("output_unbox_nomusic", "2_Khong_Nhac"))
         self.edit_review_folder.setText(c.get("output_review", "2_Review_Co_Voice"))
         self.edit_doubt_folder.setText(c.get("output_doubt", "3_Can_Kiem_Tra_Lai"))
 
@@ -279,6 +306,8 @@ class SettingsDialog(QDialog):
             self.radio_move.setChecked(True)
 
         # Bộ lọc Shopee
+        self.chk_del_has_human.setChecked(c.get("delete_has_human", True))
+        self.spin_human_samples.setValue(c.get("human_sample_frames", 6))
         self.chk_del_low_res.setChecked(c.get("delete_low_res", True))
         self.spin_min_res.setValue(c.get("filter_min_resolution", 720))
         self.chk_del_non_9_16.setChecked(c.get("delete_non_9_16", True))
@@ -296,11 +325,15 @@ class SettingsDialog(QDialog):
         self.spin_vad.setValue(0.6)
         self.spin_scan_limit.setValue(0)
         self.edit_unbox_folder.setText("1_Unbox_Khong_Voice")
+        self.edit_unbox_music.setText("1_Co_Nhac")
+        self.edit_unbox_nomusic.setText("2_Khong_Nhac")
         self.edit_review_folder.setText("2_Review_Co_Voice")
         self.edit_doubt_folder.setText("3_Can_Kiem_Tra_Lai")
         self.radio_move.setChecked(True)
 
         # Mặc định bộ lọc Shopee
+        self.chk_del_has_human.setChecked(True)
+        self.spin_human_samples.setValue(6)
         self.chk_del_low_res.setChecked(True)
         self.spin_min_res.setValue(720)
         self.chk_del_non_9_16.setChecked(True)
@@ -322,12 +355,16 @@ class SettingsDialog(QDialog):
         self.config["split_review_subtitles"] = False
 
         self.config["output_unbox"] = self.edit_unbox_folder.text().strip() or "1_Unbox_Khong_Voice"
+        self.config["output_unbox_music"] = self.edit_unbox_music.text().strip() or "1_Co_Nhac"
+        self.config["output_unbox_nomusic"] = self.edit_unbox_nomusic.text().strip() or "2_Khong_Nhac"
         self.config["output_review"] = self.edit_review_folder.text().strip() or "2_Review_Co_Voice"
         self.config["output_doubt"] = self.edit_doubt_folder.text().strip() or "3_Can_Kiem_Tra_Lai"
 
         self.config["action_mode"] = "copy" if self.radio_copy.isChecked() else "move"
 
         # Lưu bộ lọc Shopee
+        self.config["delete_has_human"] = self.chk_del_has_human.isChecked()
+        self.config["human_sample_frames"] = self.spin_human_samples.value()
         self.config["delete_low_res"] = self.chk_del_low_res.isChecked()
         self.config["filter_min_resolution"] = self.spin_min_res.value()
         self.config["delete_non_9_16"] = self.chk_del_non_9_16.isChecked()

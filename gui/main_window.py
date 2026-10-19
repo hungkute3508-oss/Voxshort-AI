@@ -16,7 +16,8 @@ from PyQt6.QtGui import QColor, QFont, QDesktopServices
 from config_manager import load_config, save_config
 from classifier_core import (
     VideoInfo, ClassificationResult, scan_video_files,
-    CATEGORY_UNBOX, CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB,
+    CATEGORY_UNBOX, CATEGORY_UNBOX_MUSIC, CATEGORY_UNBOX_NOMUSIC,
+    CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB,
     CATEGORY_DOUBT, CATEGORY_ERROR, CATEGORY_DELETED, CATEGORY_NAMES
 )
 from gui.worker_thread import ClassifierWorker
@@ -29,8 +30,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("VoxSort AI - Phân Loại Video Tự Động (Whisper Voice AI)")
-        self.resize(1240, 800)
-        self.setMinimumSize(1000, 680)
+        self.resize(1280, 820)
+        self.setMinimumSize(1020, 680)
 
         # Config & State
         self.config = load_config()
@@ -40,8 +41,10 @@ class MainWindow(QMainWindow):
 
         # Statistics
         self.count_total = 0
-        self.count_unbox = 0
         self.count_review = 0
+        self.count_unbox = 0
+        self.count_unbox_music = 0
+        self.count_unbox_nomusic = 0
         self.count_deleted = 0
         self.count_doubt = 0
         self.count_error = 0
@@ -160,6 +163,12 @@ class MainWindow(QMainWindow):
         lbl_flt_title.setStyleSheet("font-weight: 700; color: #FCA5A5;")
         row_filters.addWidget(lbl_flt_title)
 
+        self.chk_del_has_human = QCheckBox("Xóa có người")
+        self.chk_del_has_human.setChecked(self.config.get("delete_has_human", True))
+        self.chk_del_has_human.setToolTip("Xóa video xuất hiện cả người hoặc có mặt người. Nếu chỉ có cánh tay/bàn tay cầm nắm sản phẩm thì GIỮ LẠI và lọc bình thường.")
+        self.chk_del_has_human.stateChanged.connect(self._on_option_changed)
+        row_filters.addWidget(self.chk_del_has_human)
+
         self.chk_del_low_res = QCheckBox("Xóa < 720p")
         self.chk_del_low_res.setChecked(self.config.get("delete_low_res", True))
         self.chk_del_low_res.setToolTip("Tự động xóa video có độ phân giải dưới 720p (cạnh ngắn < 720px)")
@@ -194,10 +203,15 @@ class MainWindow(QMainWindow):
         self.btn_open_review.clicked.connect(lambda: self._open_dest_folder(CATEGORY_REVIEW))
         row_targets.addWidget(self.btn_open_review)
 
-        self.btn_open_unbox = QPushButton("📦 Mở: Unbox")
-        self.btn_open_unbox.setStyleSheet("color: #38BDF8; border-color: #0369A1;")
-        self.btn_open_unbox.clicked.connect(lambda: self._open_dest_folder(CATEGORY_UNBOX))
-        row_targets.addWidget(self.btn_open_unbox)
+        self.btn_open_unbox_music = QPushButton("🎵 Mở: Unbox Có Nhạc")
+        self.btn_open_unbox_music.setStyleSheet("color: #38BDF8; border-color: #0369A1;")
+        self.btn_open_unbox_music.clicked.connect(lambda: self._open_dest_folder(CATEGORY_UNBOX_MUSIC))
+        row_targets.addWidget(self.btn_open_unbox_music)
+
+        self.btn_open_unbox_nomusic = QPushButton("🔇 Mở: Unbox Không Nhạc")
+        self.btn_open_unbox_nomusic.setStyleSheet("color: #C084FC; border-color: #7E22CE;")
+        self.btn_open_unbox_nomusic.clicked.connect(lambda: self._open_dest_folder(CATEGORY_UNBOX_NOMUSIC))
+        row_targets.addWidget(self.btn_open_unbox_nomusic)
 
         self.btn_open_doubt = QPushButton("⚠️ Mở: Cần KT")
         self.btn_open_doubt.setStyleSheet("color: #FBBF24; border-color: #B45309;")
@@ -217,14 +231,16 @@ class MainWindow(QMainWindow):
 
         self.card_total = self._create_metric_card("TỔNG VIDEO QUÉT", "0", "#94A3B8")
         self.card_review = self._create_metric_card("REVIEW (CÓ VOICE)", "0", "#34D399")
-        self.card_unbox = self._create_metric_card("UNBOX (KHÔNG VOICE)", "0", "#38BDF8")
+        self.card_unbox_music = self._create_metric_card("UNBOX (CÓ NHẠC)", "0", "#38BDF8")
+        self.card_unbox_nomusic = self._create_metric_card("UNBOX (KHÔNG NHẠC)", "0", "#C084FC")
         self.card_deleted = self._create_metric_card("ĐÃ XÓA (KÉM CHUẨN)", "0", "#EF4444")
         self.card_doubt = self._create_metric_card("CẦN KIỂM TRA LẠI", "0", "#FBBF24")
         self.card_error = self._create_metric_card("LỖI XỬ LÝ", "0", "#F87171")
 
         cards_layout.addWidget(self.card_total)
         cards_layout.addWidget(self.card_review)
-        cards_layout.addWidget(self.card_unbox)
+        cards_layout.addWidget(self.card_unbox_music)
+        cards_layout.addWidget(self.card_unbox_nomusic)
         cards_layout.addWidget(self.card_deleted)
         cards_layout.addWidget(self.card_doubt)
         cards_layout.addWidget(self.card_error)
@@ -299,10 +315,15 @@ class MainWindow(QMainWindow):
         self.btn_filter_review.clicked.connect(lambda: self._apply_filter(CATEGORY_REVIEW))
         filter_row.addWidget(self.btn_filter_review)
 
-        self.btn_filter_unbox = QPushButton("📦 Unbox (0)")
-        self.btn_filter_unbox.setCheckable(True)
-        self.btn_filter_unbox.clicked.connect(lambda: self._apply_filter(CATEGORY_UNBOX))
-        filter_row.addWidget(self.btn_filter_unbox)
+        self.btn_filter_unbox_music = QPushButton("🎵 Unbox Có Nhạc (0)")
+        self.btn_filter_unbox_music.setCheckable(True)
+        self.btn_filter_unbox_music.clicked.connect(lambda: self._apply_filter(CATEGORY_UNBOX_MUSIC))
+        filter_row.addWidget(self.btn_filter_unbox_music)
+
+        self.btn_filter_unbox_nomusic = QPushButton("🔇 Unbox Không Nhạc (0)")
+        self.btn_filter_unbox_nomusic.setCheckable(True)
+        self.btn_filter_unbox_nomusic.clicked.connect(lambda: self._apply_filter(CATEGORY_UNBOX_NOMUSIC))
+        filter_row.addWidget(self.btn_filter_unbox_nomusic)
 
         self.btn_filter_deleted = QPushButton("🗑️ Đã xóa (0)")
         self.btn_filter_deleted.setCheckable(True)
@@ -448,6 +469,8 @@ class MainWindow(QMainWindow):
 
         # Reset counters
         self.count_unbox = 0
+        self.count_unbox_music = 0
+        self.count_unbox_nomusic = 0
         self.count_review = 0
         self.count_deleted = 0
         self.count_doubt = 0
@@ -545,6 +568,7 @@ class MainWindow(QMainWindow):
         self.config["recursive"] = self.chk_recursive.isChecked()
         self.config["split_review_subtitles"] = False
         self.config["action_mode"] = "copy" if self.radio_copy.isChecked() else "move"
+        self.config["delete_has_human"] = self.chk_del_has_human.isChecked()
         self.config["delete_low_res"] = self.chk_del_low_res.isChecked()
         self.config["delete_non_9_16"] = self.chk_del_non_9_16.isChecked()
         self.config["delete_short_duration"] = self.chk_del_short.isChecked()
@@ -602,7 +626,13 @@ class MainWindow(QMainWindow):
         self.results_map[res.file_name] = res
 
         # Cập nhật số liệu
-        if res.category == CATEGORY_UNBOX:
+        if res.category == CATEGORY_UNBOX_MUSIC:
+            self.count_unbox_music += 1
+            self.count_unbox += 1
+        elif res.category == CATEGORY_UNBOX_NOMUSIC:
+            self.count_unbox_nomusic += 1
+            self.count_unbox += 1
+        elif res.category == CATEGORY_UNBOX:
             self.count_unbox += 1
         elif res.category == CATEGORY_DELETED:
             self.count_deleted += 1
@@ -637,6 +667,12 @@ class MainWindow(QMainWindow):
         if res.category in (CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB):
             cat_item.setForeground(QColor("#34D399"))
             cat_item.setBackground(QColor("#064E3B"))
+        elif res.category == CATEGORY_UNBOX_MUSIC:
+            cat_item.setForeground(QColor("#38BDF8"))
+            cat_item.setBackground(QColor("#0C4A6E"))
+        elif res.category == CATEGORY_UNBOX_NOMUSIC:
+            cat_item.setForeground(QColor("#C084FC"))
+            cat_item.setBackground(QColor("#3B0764"))
         elif res.category == CATEGORY_UNBOX:
             cat_item.setForeground(QColor("#38BDF8"))
             cat_item.setBackground(QColor("#0C4A6E"))
@@ -710,7 +746,8 @@ class MainWindow(QMainWindow):
             self, "Hoàn tất phân loại",
             f"🎉 Đã xử lý xong {total_done} video!\n\n"
             f"• 🎙️ Review (Có Voice): {self.count_review}\n"
-            f"• 📦 Unbox (Không voice): {self.count_unbox}\n"
+            f"• 🎵 Unbox (Có Nhạc): {self.count_unbox_music}\n"
+            f"• 🔇 Unbox (Không Nhạc): {self.count_unbox_nomusic}\n"
             f"• 🗑️ Đã xóa (Không đạt chuẩn Shopee): {self.count_deleted}\n"
             f"• ⚠️ Cần kiểm tra lại: {self.count_doubt}\n"
             f"• ❌ Lỗi: {self.count_error}\n\n"
@@ -719,7 +756,8 @@ class MainWindow(QMainWindow):
 
     def _update_counts_ui(self):
         self._update_card_val(self.card_review, str(self.count_review))
-        self._update_card_val(self.card_unbox, str(self.count_unbox))
+        self._update_card_val(self.card_unbox_music, str(self.count_unbox_music))
+        self._update_card_val(self.card_unbox_nomusic, str(self.count_unbox_nomusic))
         self._update_card_val(self.card_deleted, str(self.count_deleted))
         self._update_card_val(self.card_doubt, str(self.count_doubt))
         self._update_card_val(self.card_error, str(self.count_error))
@@ -727,7 +765,8 @@ class MainWindow(QMainWindow):
         # Cập nhật số trên các nút lọc
         self.btn_filter_all.setText(f"Tất cả ({self.count_total})")
         self.btn_filter_review.setText(f"🎙️ Review ({self.count_review})")
-        self.btn_filter_unbox.setText(f"📦 Unbox ({self.count_unbox})")
+        self.btn_filter_unbox_music.setText(f"🎵 Có Nhạc ({self.count_unbox_music})")
+        self.btn_filter_unbox_nomusic.setText(f"🔇 Không Nhạc ({self.count_unbox_nomusic})")
         self.btn_filter_deleted.setText(f"🗑️ Đã xóa ({self.count_deleted})")
         self.btn_filter_doubt.setText(f"⚠️ Cần KT ({self.count_doubt})")
         self.btn_filter_error.setText(f"❌ Lỗi ({self.count_error})")
@@ -737,7 +776,8 @@ class MainWindow(QMainWindow):
         buttons = [
             ("ALL", self.btn_filter_all),
             (CATEGORY_REVIEW, self.btn_filter_review),
-            (CATEGORY_UNBOX, self.btn_filter_unbox),
+            (CATEGORY_UNBOX_MUSIC, self.btn_filter_unbox_music),
+            (CATEGORY_UNBOX_NOMUSIC, self.btn_filter_unbox_nomusic),
             (CATEGORY_DELETED, self.btn_filter_deleted),
             (CATEGORY_DOUBT, self.btn_filter_doubt),
             (CATEGORY_ERROR, self.btn_filter_error)
@@ -753,8 +793,10 @@ class MainWindow(QMainWindow):
         active_cat = "ALL"
         if self.btn_filter_review.isChecked():
             active_cat = CATEGORY_REVIEW
-        elif self.btn_filter_unbox.isChecked():
-            active_cat = CATEGORY_UNBOX
+        elif self.btn_filter_unbox_music.isChecked():
+            active_cat = CATEGORY_UNBOX_MUSIC
+        elif self.btn_filter_unbox_nomusic.isChecked():
+            active_cat = CATEGORY_UNBOX_NOMUSIC
         elif self.btn_filter_deleted.isChecked():
             active_cat = CATEGORY_DELETED
         elif self.btn_filter_doubt.isChecked():
@@ -796,6 +838,7 @@ class MainWindow(QMainWindow):
                 self.radio_move.setChecked(True)
 
             # Đồng bộ lại các checkbox nhanh
+            self.chk_del_has_human.setChecked(self.config.get("delete_has_human", True))
             self.chk_del_low_res.setChecked(self.config.get("delete_low_res", True))
             self.chk_del_non_9_16.setChecked(self.config.get("delete_non_9_16", True))
             self.chk_del_short.setChecked(self.config.get("delete_short_duration", True))
@@ -811,6 +854,7 @@ class MainWindow(QMainWindow):
         self.config["split_review_subtitles"] = False
         self.config["action_mode"] = "copy" if self.radio_copy.isChecked() else "move"
         self.config["workers"] = self.spin_workers.value()
+        self.config["delete_has_human"] = self.chk_del_has_human.isChecked()
         self.config["delete_low_res"] = self.chk_del_low_res.isChecked()
         self.config["delete_non_9_16"] = self.chk_del_non_9_16.isChecked()
         self.config["delete_short_duration"] = self.chk_del_short.isChecked()
@@ -837,10 +881,16 @@ class MainWindow(QMainWindow):
             return
 
         review_base = os.path.join(source, self.config.get("output_review", "2_Review_Co_Voice"))
+        base_unbox = os.path.join(source, self.config.get("output_unbox", "1_Unbox_Khong_Voice"))
+
         if category in (CATEGORY_REVIEW, CATEGORY_REVIEW_SUB, CATEGORY_REVIEW_NOSUB):
             target = review_base
+        elif category == CATEGORY_UNBOX_MUSIC:
+            target = os.path.join(base_unbox, self.config.get("output_unbox_music", "1_Co_Nhac"))
+        elif category == CATEGORY_UNBOX_NOMUSIC:
+            target = os.path.join(base_unbox, self.config.get("output_unbox_nomusic", "2_Khong_Nhac"))
         elif category == CATEGORY_UNBOX:
-            target = os.path.join(source, self.config.get("output_unbox", "1_Unbox_Khong_Voice"))
+            target = base_unbox
         else:
             target = os.path.join(source, self.config.get("output_doubt", "3_Can_Kiem_Tra_Lai"))
 

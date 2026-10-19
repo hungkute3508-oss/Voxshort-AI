@@ -7,6 +7,8 @@ CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.j
 DEFAULT_CONFIG: Dict[str, Any] = {
     "source_dir": "",
     "output_unbox": "1_Unbox_Khong_Voice",
+    "output_unbox_music": "1_Co_Nhac",
+    "output_unbox_nomusic": "2_Khong_Nhac",
     "output_review": "2_Review_Co_Voice",
     "output_review_sub": "1_Co_Phu_De",
     "output_review_nosub": "2_Khong_Phu_De",
@@ -27,6 +29,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     "scan_duration_limit": 0,  # 0 = scan all, or seconds (e.g. 60)
     "recursive": False,
     # --- BỘ LỌC TỰ ĐỘNG XÓA MẶC ĐỊNH (CHUẨN SHOPEE) ---
+    "delete_has_human": True,           # Mặc định XÓA video có hình ảnh con người xuất hiện
+    "human_sample_frames": 6,           # Số khung hình lấy mẫu nhận diện người
     "delete_low_res": True,             # Mặc định XÓA video có độ phân giải dưới 720p
     "filter_min_resolution": 720,       # Ngưỡng phân giải tối thiểu (720p)
     "delete_non_9_16": True,            # Mặc định XÓA video không phải tỉ lệ 9:16
